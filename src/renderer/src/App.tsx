@@ -66,14 +66,32 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!videoFile) return
-    const filePath = (videoFile as File & { path?: string }).path
-    if (!filePath) return
-    setSourcePath(filePath)
     setMarkedFrames([])
     setJobId(null)
-    window.spriteLoop
-      .createJob(filePath)
+    const filePath = (videoFile as File & { path?: string }).path
+    if (filePath) {
+      setSourcePath(filePath)
+      window.spriteLoop
+        .createJob(filePath)
+        .then((job) => {
+          setJobId(job.jobId)
+        })
+        .catch(() => {
+          setJobId(null)
+        })
+      return
+    }
+
+    videoFile
+      .arrayBuffer()
+      .then((buffer) =>
+        window.spriteLoop.createJobWithVideo({
+          fileName: videoFile.name,
+          data: new Uint8Array(buffer)
+        })
+      )
       .then((job) => {
+        setSourcePath(job.sourcePath)
         setJobId(job.jobId)
       })
       .catch(() => {
@@ -161,7 +179,7 @@ const App: React.FC = () => {
     const cached = processedCacheRef.current.get(cacheKey)
     if (cached) return cached
     const img = imageCacheRef.current.get(frame.fileUrl)
-    if (!img || !img.complete) return null
+    if (!img || !img.complete || img.width === 0 || img.height === 0) return null
     const offscreen = document.createElement('canvas')
     offscreen.width = img.width
     offscreen.height = img.height
@@ -276,7 +294,7 @@ const App: React.FC = () => {
 
   const toFileUrl = (filePath: string) => {
     const normalized = filePath.replace(/\\/g, '/')
-    const prefix = normalized.startsWith('/') ? 'file://' : 'file:///'
+    const prefix = normalized.startsWith('/') ? 'spriteloop://' : 'spriteloop:///'
     return `${prefix}${encodeURI(normalized)}`
   }
 

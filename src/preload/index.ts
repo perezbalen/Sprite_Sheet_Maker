@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('spriteLoop', {
   createJob: (sourcePath: string) => ipcRenderer.invoke('job:create', { sourcePath }),
+  createJobWithVideo: (payload: { fileName: string; data: Uint8Array }) =>
+    ipcRenderer.invoke('job:createWithVideo', payload),
   extractFrame: (payload: {
     jobId: string
     sourcePath: string

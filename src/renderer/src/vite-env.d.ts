@@ -3,6 +3,10 @@
 interface Window {
   spriteLoop: {
     createJob: (sourcePath: string) => Promise<{ jobId: string; jobDir: string }>
+    createJobWithVideo: (payload: {
+      fileName: string
+      data: Uint8Array
+    }) => Promise<{ jobId: string; jobDir: string; sourcePath: string }>
     extractFrame: (payload: {
       jobId: string
       sourcePath: string

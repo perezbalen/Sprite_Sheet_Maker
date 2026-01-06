@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { existsSync, promises as fs } from 'fs'
 import { join } from 'path'
 import { spawn } from 'child_process'
@@ -61,6 +61,15 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+  protocol.registerFileProtocol('spriteloop', (request, callback) => {
+    const rawPath = request.url.replace('spriteloop://', '')
+    const decodedPath = decodeURIComponent(rawPath)
+    const normalizedPath =
+      process.platform === 'win32' && decodedPath.startsWith('/')
+        ? decodedPath.slice(1)
+        : decodedPath
+    callback({ path: normalizedPath })
+  })
   cleanupOldJobs()
     .then(() => {
       createWindow()
@@ -90,6 +99,21 @@ ipcMain.handle('job:create', async (_event, payload: { sourcePath: string }) => 
   jobs.set(jobId, { dir: jobDir, sourcePath: payload.sourcePath, createdAt: Date.now() })
   return { jobId, jobDir }
 })
+
+ipcMain.handle(
+  'job:createWithVideo',
+  async (_event, payload: { fileName: string; data: Uint8Array }) => {
+    const jobId = `job_${Date.now()}_${Math.floor(Math.random() * 10000)}`
+    const jobDir = join(baseTempDir, jobId)
+    await ensureBaseTempDir()
+    await fs.mkdir(jobDir, { recursive: true })
+    const safeName = payload.fileName.replace(/[^\w.-]+/g, '_')
+    const sourcePath = join(jobDir, `source_${Date.now()}_${safeName}`)
+    await fs.writeFile(sourcePath, Buffer.from(payload.data))
+    jobs.set(jobId, { dir: jobDir, sourcePath, createdAt: Date.now() })
+    return { jobId, jobDir, sourcePath }
+  }
+)
 
 ipcMain.handle(
   'frame:extract',
