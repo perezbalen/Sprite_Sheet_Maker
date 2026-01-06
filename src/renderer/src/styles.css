@@ -377,6 +377,10 @@ input[type="range"] {
   cursor: grabbing;
 }
 
+.preview-canvas.picking {
+  cursor: default;
+}
+
 .preview-fps {
   display: flex;
   align-items: center;

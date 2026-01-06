@@ -721,7 +721,9 @@ const App: React.FC = () => {
           </div>
           <canvas
             ref={previewCanvasRef}
-            className={`preview-canvas${previewZoom > 1 ? ' zoomed' : ''}`}
+            className={`preview-canvas${previewZoom > 1 ? ' zoomed' : ''}${
+              isPicking ? ' picking' : ''
+            }`}
             onClick={handleCanvasClick}
             onMouseDown={(event) => {
               if (previewZoom <= 1) return
