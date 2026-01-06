@@ -15,8 +15,14 @@ interface Window {
     }) => Promise<{ outputPath: string }>
     selectExportDirectory: () => Promise<string | null>
     selectSpriteSheetPath: (defaultName: string) => Promise<string | null>
+    selectGifPath: (defaultName: string) => Promise<string | null>
     exportFrames: (payload: {
       outputDir: string
+      frames: { fileName: string; data: Uint8Array }[]
+    }) => Promise<boolean>
+    exportGif: (payload: {
+      outputPath: string
+      fps: number
       frames: { fileName: string; data: Uint8Array }[]
     }) => Promise<boolean>
     writeFile: (payload: { path: string; data: Uint8Array }) => Promise<boolean>

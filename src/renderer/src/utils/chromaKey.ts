@@ -4,6 +4,9 @@ export type ChromaKeySettings = {
   colors: RGBColor[]
   tolerance: number
   feather: number
+  featherDirection?: 'background' | 'subject'
+  choke?: number
+  smoothing?: number
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
@@ -53,6 +56,39 @@ const blurAlpha = (alpha: Uint8ClampedArray, width: number, height: number, radi
   return result
 }
 
+const erodeAlpha = (alpha: Uint8ClampedArray, width: number, height: number, radius: number) => {
+  const r = Math.max(0, Math.floor(radius))
+  if (r === 0) return alpha
+  const tmp = new Uint8ClampedArray(alpha.length)
+  const result = new Uint8ClampedArray(alpha.length)
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let min = 255
+      for (let i = -r; i <= r; i++) {
+        const nx = clamp(x + i, 0, width - 1)
+        const value = alpha[y * width + nx]
+        if (value < min) min = value
+      }
+      tmp[y * width + x] = min
+    }
+  }
+
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let min = 255
+      for (let i = -r; i <= r; i++) {
+        const ny = clamp(y + i, 0, height - 1)
+        const value = tmp[ny * width + x]
+        if (value < min) min = value
+      }
+      result[y * width + x] = min
+    }
+  }
+
+  return result
+}
+
 export const applyChromaKey = (imageData: ImageData, settings: ChromaKeySettings) => {
   const { data, width, height } = imageData
   if (!settings.colors.length) {
@@ -73,9 +109,16 @@ export const applyChromaKey = (imageData: ImageData, settings: ChromaKeySettings
     alphaMask[i / 4] = minDistance <= tolerance ? 0 : 255
   }
 
-  const blurredAlpha = blurAlpha(alphaMask, width, height, settings.feather)
+  const chokedAlpha = erodeAlpha(alphaMask, width, height, settings.choke ?? 0)
+  const featheredAlpha = blurAlpha(chokedAlpha, width, height, settings.feather)
+  const smoothedAlpha = blurAlpha(featheredAlpha, width, height, settings.smoothing ?? 0)
+  const featherDirection = settings.featherDirection ?? 'background'
   for (let i = 0; i < data.length; i += 4) {
-    data[i + 3] = blurredAlpha[i / 4]
+    const index = i / 4
+    data[i + 3] =
+      featherDirection === 'subject'
+        ? Math.max(chokedAlpha[index], smoothedAlpha[index])
+        : smoothedAlpha[index]
   }
 
   if (typeof ImageData !== 'undefined') {

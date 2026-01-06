@@ -11,13 +11,15 @@ export const calculateSpriteSheetLayout = (
   frameHeight: number,
   frameCount: number,
   columns: number,
+  rows: number,
   padding: number
 ): SpriteSheetLayout => {
   const safeColumns = Math.max(1, Math.floor(columns))
+  const safeRows = Math.max(1, Math.floor(rows))
   const safePadding = Math.max(0, Math.floor(padding))
-  const rows = Math.max(1, Math.ceil(frameCount / safeColumns))
+  const fitRows = Math.max(safeRows, Math.ceil(frameCount / safeColumns))
   const sheetWidth = safeColumns * frameWidth + Math.max(0, safeColumns - 1) * safePadding
-  const sheetHeight = rows * frameHeight + Math.max(0, rows - 1) * safePadding
+  const sheetHeight = fitRows * frameHeight + Math.max(0, fitRows - 1) * safePadding
   const cells: SpriteSheetCell[] = []
 
   for (let index = 0; index < frameCount; index++) {

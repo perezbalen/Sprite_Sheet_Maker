@@ -36,3 +36,8 @@ Electron Builder writes platform installers to `release/`.
 - It extracts frames with a bundled `ffmpeg-static` binary (falls back to system `ffmpeg` if present) using the current playback timestamp.
 - Extracted PNGs are stored in the job folder and reused if the same timestamp is marked again.
 - On app start, old jobs are cleaned up (retains the last 5).
+
+## Keyboard shortcuts
+
+- `←` / `→`: Step one frame backward/forward.
+- `↓` or `Enter`: Mark current frame.

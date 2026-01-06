@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { applyChromaKey, ChromaKeySettings, RGBColor } from './utils/chromaKey'
 import { calculateSpriteSheetLayout } from './utils/spriteSheet'
 
@@ -21,22 +21,36 @@ const App: React.FC = () => {
   const [loopEnabled, setLoopEnabled] = useState(false)
   const [markedFrames, setMarkedFrames] = useState<MarkedFrame[]>([])
   const [previewFps, setPreviewFps] = useState(12)
+  const [gifFps, setGifFps] = useState(12)
   const [fpsEstimate, setFpsEstimate] = useState<number | null>(null)
+  const [fpsOverride, setFpsOverride] = useState<number | null>(null)
   const [imageVersion, setImageVersion] = useState(0)
   const [keyColors, setKeyColors] = useState<RGBColor[]>([])
   const [tolerance, setTolerance] = useState(40)
   const [feather, setFeather] = useState(4)
+  const [choke, setChoke] = useState(0)
+  const [smoothing, setSmoothing] = useState(0)
   const [isPicking, setIsPicking] = useState(false)
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
   const [backgroundVersion, setBackgroundVersion] = useState(0)
   const [sheetColumns, setSheetColumns] = useState(0)
+  const [sheetRows, setSheetRows] = useState(0)
   const [sheetPadding, setSheetPadding] = useState(0)
+  const [previewPlaying, setPreviewPlaying] = useState(true)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
+  const [featherDirection, setFeatherDirection] = useState<'background' | 'subject'>(
+    'background'
+  )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const backgroundInputRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const processedCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
+  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(
+    null
+  )
   const currentPreviewFrameRef = useRef<MarkedFrame | null>(null)
   const backgroundImageRef = useRef<HTMLImageElement | null>(null)
   const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -47,16 +61,20 @@ const App: React.FC = () => {
   }, [videoFile])
 
   const chromaSettings = useMemo<ChromaKeySettings>(
-    () => ({ colors: keyColors, tolerance, feather }),
-    [keyColors, tolerance, feather]
+    () => ({ colors: keyColors, tolerance, feather, featherDirection, choke, smoothing }),
+    [keyColors, tolerance, feather, featherDirection, choke, smoothing]
   )
 
   const settingsKey = useMemo(
-    () => JSON.stringify({ colors: keyColors, tolerance, feather }),
-    [keyColors, tolerance, feather]
+    () => JSON.stringify({ colors: keyColors, tolerance, feather, featherDirection, choke, smoothing }),
+    [keyColors, tolerance, feather, featherDirection, choke, smoothing]
   )
 
   const effectiveColumns = Math.max(1, sheetColumns || markedFrames.length || 1)
+  const effectiveRows = Math.max(
+    1,
+    sheetRows || Math.ceil((markedFrames.length || 1) / effectiveColumns)
+  )
 
   useEffect(() => {
     return () => {
@@ -68,6 +86,10 @@ const App: React.FC = () => {
     if (!videoFile) return
     setMarkedFrames([])
     setJobId(null)
+    setFpsOverride(null)
+    setGifFps(12)
+    setPreviewZoom(1)
+    setPreviewPan({ x: 0, y: 0 })
     const filePath = (videoFile as File & { path?: string }).path
     if (filePath) {
       setSourcePath(filePath)
@@ -136,6 +158,20 @@ const App: React.FC = () => {
   }, [backgroundUrl])
 
   useEffect(() => {
+    if (!videoRef.current) return
+    const baseFps = fpsEstimate || 30
+    const targetFps = fpsOverride || baseFps
+    const rate = Math.max(0.1, targetFps / baseFps)
+    videoRef.current.playbackRate = rate
+  }, [fpsEstimate, fpsOverride, videoUrl])
+
+  useEffect(() => {
+    if (previewZoom <= 1) {
+      setPreviewPan({ x: 0, y: 0 })
+    }
+  }, [previewZoom])
+
+  useEffect(() => {
     const canvas = previewCanvasRef.current
     if (!canvas) return
     const context = canvas.getContext('2d')
@@ -154,21 +190,40 @@ const App: React.FC = () => {
           canvas.width = processed.width
           canvas.height = processed.height
         }
+        context.setTransform(1, 0, 0, 1, 0, 0)
         context.clearRect(0, 0, canvas.width, canvas.height)
         const backgroundImage = backgroundImageRef.current
         if (backgroundImage) {
           context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height)
         }
+        context.setTransform(previewZoom, 0, 0, previewZoom, previewPan.x, previewPan.y)
         context.drawImage(processed, 0, 0)
-        framePosition = (framePosition + 1) % markedFrames.length
+        context.setTransform(1, 0, 0, 1, 0, 0)
+        if (previewPlaying) {
+          framePosition = (framePosition + 1) % markedFrames.length
+        }
       }
     }
-    const interval = window.setInterval(drawFrame, Math.max(1, 1000 / previewFps))
-    drawFrame()
-    return () => {
-      window.clearInterval(interval)
+    if (previewPlaying) {
+      const interval = window.setInterval(drawFrame, Math.max(1, 1000 / previewFps))
+      drawFrame()
+      return () => {
+        window.clearInterval(interval)
+      }
     }
-  }, [markedFrames, previewFps, imageVersion, settingsKey, backgroundVersion, chromaSettings])
+    drawFrame()
+    return undefined
+  }, [
+    markedFrames,
+    previewFps,
+    imageVersion,
+    settingsKey,
+    backgroundVersion,
+    chromaSettings,
+    previewPlaying,
+    previewZoom,
+    previewPan
+  ])
 
   const getProcessedFrame = (
     frame: MarkedFrame,
@@ -298,7 +353,7 @@ const App: React.FC = () => {
     return `${prefix}${encodeURI(normalized)}`
   }
 
-  const handleMarkFrame = async () => {
+  const handleMarkFrame = useCallback(async () => {
     if (!videoRef.current || !sourcePath || !jobId) return
     const timestamp = videoRef.current.currentTime
     const key = Math.round(timestamp * 1000)
@@ -316,7 +371,7 @@ const App: React.FC = () => {
       ...prev,
       { key, time: timestamp, frameIndex, filePath: result.outputPath, fileUrl }
     ])
-  }
+  }, [fpsEstimate, jobId, markedFrames, sourcePath])
 
   const handleRemoveFrame = (key: number) => {
     setMarkedFrames((prev) => prev.filter((frame) => frame.key !== key))
@@ -332,8 +387,11 @@ const App: React.FC = () => {
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
-    const x = Math.floor((event.clientX - rect.left) * scaleX)
-    const y = Math.floor((event.clientY - rect.top) * scaleY)
+    const canvasX = (event.clientX - rect.left) * scaleX
+    const canvasY = (event.clientY - rect.top) * scaleY
+    const x = Math.floor((canvasX - previewPan.x) / previewZoom)
+    const y = Math.floor((canvasY - previewPan.y) / previewZoom)
+    if (x < 0 || y < 0 || x >= img.width || y >= img.height) return
     if (!sampleCanvasRef.current) {
       sampleCanvasRef.current = document.createElement('canvas')
     }
@@ -397,6 +455,7 @@ const App: React.FC = () => {
       firstProcessed.height,
       markedFrames.length,
       effectiveColumns,
+      effectiveRows,
       sheetPadding
     )
     const sheetCanvas = document.createElement('canvas')
@@ -416,7 +475,52 @@ const App: React.FC = () => {
     await window.spriteLoop.writeFile({ path: outputPath, data })
   }
 
-  const currentFrameNumber = Math.round(currentTime * (fpsEstimate || 30))
+  const handleExportGif = async () => {
+    if (markedFrames.length === 0) return
+    const outputPath = await window.spriteLoop.selectGifPath('animation.gif')
+    if (!outputPath) return
+    const framesToExport = [] as { fileName: string; data: Uint8Array }[]
+    for (let index = 0; index < markedFrames.length; index++) {
+      const frame = markedFrames[index]
+      await ensureImageLoaded(frame.fileUrl)
+      const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
+      if (!processed) continue
+      const data = await canvasToPngBytes(processed)
+      const fileName = `frame_${String(index + 1).padStart(4, '0')}.png`
+      framesToExport.push({ fileName, data })
+    }
+    await window.spriteLoop.exportGif({ outputPath, fps: gifFps, frames: framesToExport })
+  }
+
+  const effectiveFps = fpsOverride || fpsEstimate || 30
+  const currentFrameNumber = Math.round(currentTime * effectiveFps)
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) {
+        return
+      }
+      if (!videoRef.current || !videoUrl) return
+      const frameDuration = 1 / effectiveFps
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        const nextFrame = Math.max(0, currentFrameNumber - 1)
+        videoRef.current.currentTime = nextFrame * frameDuration
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        const nextFrame = Math.max(0, currentFrameNumber + 1)
+        videoRef.current.currentTime = nextFrame * frameDuration
+      }
+      if (event.key === 'ArrowDown' || event.key === 'Enter') {
+        event.preventDefault()
+        handleMarkFrame()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentFrameNumber, effectiveFps, handleMarkFrame, videoUrl])
 
   return (
     <div className="app">
@@ -425,7 +529,11 @@ const App: React.FC = () => {
       </header>
 
       <section className="top-area">
-        <div className="drop-zone" onDrop={handleDrop} onDragOver={handleDragOver}>
+        <div
+          className={`drop-zone${videoUrl ? ' compact' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
           <div className="drop-zone-content">
             <p>Drag & drop an MP4 here</p>
             <button type="button" onClick={handleOpenClick}>
@@ -448,14 +556,33 @@ const App: React.FC = () => {
                 ref={videoRef}
                 src={videoUrl}
                 controls
+                muted
                 className="video-player"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  videoRef.current?.pause()
+                }}
               />
               <div className="video-controls">
                 <div className="time-readout">
                   <span>Current: {formatTime(currentTime)}</span>
-                  <span>Frame: {currentFrameNumber}</span>
+                  <label className="frame-input">
+                    Frame
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={currentFrameNumber}
+                      onChange={(event) => {
+                        const value = Number(event.target.value)
+                        if (!videoRef.current || Number.isNaN(value)) return
+                        videoRef.current.currentTime = value / effectiveFps
+                      }}
+                    />
+                  </label>
                   <span>Total: {formatTime(duration)}</span>
                 </div>
                 <div className="in-out-controls">
@@ -476,6 +603,21 @@ const App: React.FC = () => {
                   />
                   Loop IN→OUT Preview
                 </label>
+                <label className="fps-control">
+                  Playback FPS
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    step={1}
+                    value={fpsOverride ?? Math.round(fpsEstimate || 30)}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (Number.isNaN(value) || value <= 0) return
+                      setFpsOverride(value)
+                    }}
+                  />
+                </label>
               </div>
             </div>
           ) : (
@@ -492,6 +634,7 @@ const App: React.FC = () => {
               Mark Current Frame
             </button>
           </div>
+          <p className="helper-text">Shortcuts: ←/→ frame, ↓/Enter mark.</p>
           <div className="frame-list">
             {markedFrames.length === 0 && <p>No frames marked yet.</p>}
             {markedFrames.map((frame) => (
@@ -511,10 +654,47 @@ const App: React.FC = () => {
 
         <div className="frame-preview">
           <h2>Selected Frames Preview</h2>
+          <div className="preview-toolbar">
+            <button type="button" onClick={() => setPreviewPlaying((prev) => !prev)}>
+              {previewPlaying ? 'Stop' : 'Play'}
+            </button>
+            <div className="preview-zoom">
+              <button type="button" onClick={() => setPreviewZoom((zoom) => Math.max(1, zoom - 1))}>
+                Zoom -
+              </button>
+              <span>{previewZoom}x</span>
+              <button type="button" onClick={() => setPreviewZoom((zoom) => Math.min(8, zoom + 1))}>
+                Zoom +
+              </button>
+            </div>
+          </div>
           <canvas
             ref={previewCanvasRef}
-            className="preview-canvas"
+            className={`preview-canvas${previewZoom > 1 ? ' zoomed' : ''}`}
             onClick={handleCanvasClick}
+            onMouseDown={(event) => {
+              if (previewZoom <= 1) return
+              dragStartRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+                panX: previewPan.x,
+                panY: previewPan.y
+              }
+            }}
+            onMouseMove={(event) => {
+              const start = dragStartRef.current
+              if (!start) return
+              setPreviewPan({
+                x: start.panX + (event.clientX - start.x),
+                y: start.panY + (event.clientY - start.y)
+              })
+            }}
+            onMouseUp={() => {
+              dragStartRef.current = null
+            }}
+            onMouseLeave={() => {
+              dragStartRef.current = null
+            }}
           />
           <label className="preview-fps">
             Preview FPS
@@ -572,6 +752,38 @@ const App: React.FC = () => {
               onChange={(event) => setFeather(Math.max(0, Number(event.target.value) || 0))}
             />
           </label>
+          <label className="chroma-slider">
+            Choke / Edge Thickness
+            <input
+              type="number"
+              min={0}
+              max={10}
+              value={choke}
+              onChange={(event) => setChoke(Math.max(0, Number(event.target.value) || 0))}
+            />
+          </label>
+          <label className="chroma-slider">
+            Smoothing / Edge Blend
+            <input
+              type="number"
+              min={0}
+              max={10}
+              value={smoothing}
+              onChange={(event) => setSmoothing(Math.max(0, Number(event.target.value) || 0))}
+            />
+          </label>
+          <label className="chroma-slider">
+            Feather Direction
+            <select
+              value={featherDirection}
+              onChange={(event) =>
+                setFeatherDirection(event.target.value as 'background' | 'subject')
+              }
+            >
+              <option value="background">Toward Background</option>
+              <option value="subject">Toward Subject</option>
+            </select>
+          </label>
         </div>
 
         <div className="chroma-background">
@@ -597,11 +809,24 @@ const App: React.FC = () => {
           <button type="button" onClick={handleExportFrames} disabled={markedFrames.length === 0}>
             Export PNG Frames...
           </button>
+          <button type="button" onClick={handleExportGif} disabled={markedFrames.length === 0}>
+            Export Animated GIF...
+          </button>
           <button type="button" onClick={handleExportSpriteSheet} disabled={markedFrames.length === 0}>
             Export Sprite Sheet...
           </button>
         </div>
         <div className="sprite-options">
+          <label>
+            GIF FPS
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={gifFps}
+              onChange={(event) => setGifFps(Math.max(1, Number(event.target.value) || 1))}
+            />
+          </label>
           <label>
             Columns
             <input
@@ -609,6 +834,15 @@ const App: React.FC = () => {
               min={1}
               value={effectiveColumns}
               onChange={(event) => setSheetColumns(Math.max(1, Number(event.target.value) || 1))}
+            />
+          </label>
+          <label>
+            Rows
+            <input
+              type="number"
+              min={1}
+              value={sheetRows || effectiveRows}
+              onChange={(event) => setSheetRows(Math.max(1, Number(event.target.value) || 1))}
             />
           </label>
           <label>

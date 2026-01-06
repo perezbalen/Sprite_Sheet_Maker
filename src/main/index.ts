@@ -165,6 +165,15 @@ ipcMain.handle('dialog:saveFile', async (_event, payload: { defaultName: string 
   return result.filePath
 })
 
+ipcMain.handle('dialog:saveGif', async (_event, payload: { defaultName: string }) => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: payload.defaultName,
+    filters: [{ name: 'GIF', extensions: ['gif'] }]
+  })
+  if (result.canceled || !result.filePath) return null
+  return result.filePath
+})
+
 ipcMain.handle(
   'export:frames',
   async (_event, payload: { outputDir: string; frames: { fileName: string; data: Uint8Array }[] }) => {
@@ -174,6 +183,45 @@ ipcMain.handle(
         return fs.writeFile(outputPath, Buffer.from(frame.data))
       })
     )
+    return true
+  }
+)
+
+ipcMain.handle(
+  'export:gif',
+  async (
+    _event,
+    payload: { outputPath: string; fps: number; frames: { fileName: string; data: Uint8Array }[] }
+  ) => {
+    await ensureBaseTempDir()
+    const tempDir = await fs.mkdtemp(join(baseTempDir, 'gif_'))
+    try {
+      await Promise.all(
+        payload.frames.map((frame) => {
+          const outputPath = join(tempDir, frame.fileName)
+          return fs.writeFile(outputPath, Buffer.from(frame.data))
+        })
+      )
+      const inputPattern = join(tempDir, 'frame_%04d.png').replace(/\\/g, '/')
+      const args = [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-framerate',
+        `${payload.fps}`,
+        '-start_number',
+        '1',
+        '-i',
+        inputPattern,
+        '-vf',
+        'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+        '-y',
+        payload.outputPath
+      ]
+      await runFfmpeg(args)
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true })
+    }
     return true
   }
 )

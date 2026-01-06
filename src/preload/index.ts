@@ -13,8 +13,14 @@ contextBridge.exposeInMainWorld('spriteLoop', {
   selectExportDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   selectSpriteSheetPath: (defaultName: string) =>
     ipcRenderer.invoke('dialog:saveFile', { defaultName }),
+  selectGifPath: (defaultName: string) => ipcRenderer.invoke('dialog:saveGif', { defaultName }),
   exportFrames: (payload: { outputDir: string; frames: { fileName: string; data: Uint8Array }[] }) =>
     ipcRenderer.invoke('export:frames', payload),
+  exportGif: (payload: {
+    outputPath: string
+    fps: number
+    frames: { fileName: string; data: Uint8Array }[]
+  }) => ipcRenderer.invoke('export:gif', payload),
   writeFile: (payload: { path: string; data: Uint8Array }) =>
     ipcRenderer.invoke('fs:writeFile', payload)
 })
