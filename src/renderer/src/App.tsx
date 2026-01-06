@@ -557,28 +557,31 @@ const App: React.FC = () => {
         <h1>SpriteLoop</h1>
       </header>
 
-      <section className="top-area">
-        <div
-          className={`drop-zone${videoUrl ? ' compact' : ''}`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-        >
-          <div className="drop-zone-content">
-            <p>Drag & drop an MP4 here</p>
-            <button type="button" onClick={handleOpenClick}>
-              Open Video...
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/mp4"
-              onChange={handleFileChange}
-              hidden
-            />
+      <main className="layout-grid">
+        <section className="row row-full">
+          <div
+            className={`drop-zone${videoUrl ? ' compact' : ''}`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+          >
+            <div className="drop-zone-content">
+              <p>Drag & drop an MP4 here</p>
+              <button type="button" onClick={handleOpenClick}>
+                Open Video...
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4"
+                onChange={handleFileChange}
+                hidden
+              />
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="video-panel">
+        <section className="row">
+          <div className="video-panel">
           {videoUrl ? (
             <div className="video-stack">
               <video
@@ -652,11 +655,9 @@ const App: React.FC = () => {
           ) : (
             <div className="video-placeholder">No video loaded</div>
           )}
-        </div>
-      </section>
+          </div>
 
-      <section className="middle-area">
-        <div className="frame-marking">
+          <div className="frame-marking">
           <div className="frame-marking-header">
             <h2>Marked Frames</h2>
             <button type="button" onClick={handleMarkFrame} disabled={!videoUrl}>
@@ -698,9 +699,11 @@ const App: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </section>
 
-        <div className="frame-preview">
+        <section className="row">
+          <div className="frame-preview">
           <h2>Selected Frames Preview</h2>
           <div className="preview-toolbar">
             <button type="button" onClick={() => setPreviewPlaying((prev) => !prev)}>
@@ -754,11 +757,9 @@ const App: React.FC = () => {
               onChange={(event) => setPreviewFps(Math.max(1, Number(event.target.value) || 1))}
             />
           </label>
-        </div>
-      </section>
+          </div>
 
-      <section className="chroma-area">
-        <div className="chroma-controls">
+          <div className="chroma-controls">
           <div className="chroma-header">
             <h2>Chroma Key</h2>
             <button type="button" onClick={() => setIsPicking((prev) => !prev)}>
@@ -832,78 +833,85 @@ const App: React.FC = () => {
               <option value="subject">Toward Subject</option>
             </select>
           </label>
-        </div>
-
-        <div className="chroma-background">
-          <h3>Preview Background</h3>
-          <p>Defaults to checkerboard. Choose an image to compare transparency.</p>
-          <div className="background-controls">
-            <input
-              ref={backgroundInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleBackgroundFileChange}
-            />
-            <button type="button" onClick={handleClearBackground}>
-              Clear Background
-            </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="export-area">
-        <h2>Export</h2>
-        <div className="export-controls">
-          <button type="button" onClick={handleExportFrames} disabled={markedFrames.length === 0}>
-            Export PNG Frames...
-          </button>
-          <button type="button" onClick={handleExportGif} disabled={markedFrames.length === 0}>
-            Export Animated GIF...
-          </button>
-          <button type="button" onClick={handleExportSpriteSheet} disabled={markedFrames.length === 0}>
-            Export Sprite Sheet...
-          </button>
-        </div>
-        <div className="sprite-options">
-          <label>
-            GIF FPS
-            <input
-              type="number"
-              min={1}
-              max={60}
-              value={gifFps}
-              onChange={(event) => setGifFps(Math.max(1, Number(event.target.value) || 1))}
-            />
-          </label>
-          <label>
-            Columns
-            <input
-              type="number"
-              min={1}
-              value={effectiveColumns}
-              onChange={(event) => setSheetColumns(Math.max(1, Number(event.target.value) || 1))}
-            />
-          </label>
-          <label>
-            Rows
-            <input
-              type="number"
-              min={1}
-              value={sheetRows || effectiveRows}
-              onChange={(event) => setSheetRows(Math.max(1, Number(event.target.value) || 1))}
-            />
-          </label>
-          <label>
-            Padding
-            <input
-              type="number"
-              min={0}
-              value={sheetPadding}
-              onChange={(event) => setSheetPadding(Math.max(0, Number(event.target.value) || 0))}
-            />
-          </label>
-        </div>
-      </section>
+        <section className="row">
+          <div className="chroma-background">
+            <h3>Preview Background</h3>
+            <p>Defaults to checkerboard. Choose an image to compare transparency.</p>
+            <div className="background-controls">
+              <input
+                ref={backgroundInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleBackgroundFileChange}
+              />
+              <button type="button" onClick={handleClearBackground}>
+                Clear Background
+              </button>
+            </div>
+          </div>
+
+          <div className="export-area">
+            <h2>Export</h2>
+            <div className="export-controls">
+              <button type="button" onClick={handleExportFrames} disabled={markedFrames.length === 0}>
+                Export PNG Frames...
+              </button>
+              <button type="button" onClick={handleExportGif} disabled={markedFrames.length === 0}>
+                Export Animated GIF...
+              </button>
+              <button
+                type="button"
+                onClick={handleExportSpriteSheet}
+                disabled={markedFrames.length === 0}
+              >
+                Export Sprite Sheet...
+              </button>
+            </div>
+            <div className="sprite-options">
+              <label>
+                GIF FPS
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={gifFps}
+                  onChange={(event) => setGifFps(Math.max(1, Number(event.target.value) || 1))}
+                />
+              </label>
+              <label>
+                Columns
+                <input
+                  type="number"
+                  min={1}
+                  value={effectiveColumns}
+                  onChange={(event) => setSheetColumns(Math.max(1, Number(event.target.value) || 1))}
+                />
+              </label>
+              <label>
+                Rows
+                <input
+                  type="number"
+                  min={1}
+                  value={sheetRows || effectiveRows}
+                  onChange={(event) => setSheetRows(Math.max(1, Number(event.target.value) || 1))}
+                />
+              </label>
+              <label>
+                Padding
+                <input
+                  type="number"
+                  min={0}
+                  value={sheetPadding}
+                  onChange={(event) => setSheetPadding(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
