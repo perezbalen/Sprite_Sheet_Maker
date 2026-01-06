@@ -1,0 +1,68 @@
+:root {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #111;
+  background: #f4f4f4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  padding: 24px;
+}
+
+.header h1 {
+  margin: 0 0 16px;
+  font-size: 24px;
+}
+
+.top-area {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.drop-zone {
+  border: 2px dashed #999;
+  border-radius: 8px;
+  background: #fff;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.drop-zone-content {
+  text-align: center;
+}
+
+.drop-zone-content button {
+  margin-top: 12px;
+  padding: 8px 12px;
+}
+
+.video-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-player {
+  width: 100%;
+  max-height: 360px;
+}
+
+.video-placeholder {
+  color: #666;
+}
