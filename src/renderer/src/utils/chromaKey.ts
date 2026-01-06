@@ -78,5 +78,8 @@ export const applyChromaKey = (imageData: ImageData, settings: ChromaKeySettings
     data[i + 3] = blurredAlpha[i / 4]
   }
 
-  return new ImageData(data, width, height)
+  if (typeof ImageData !== 'undefined') {
+    return new ImageData(data, width, height)
+  }
+  return imageData
 }

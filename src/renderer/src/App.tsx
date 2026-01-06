@@ -150,7 +150,7 @@ const App: React.FC = () => {
     return () => {
       window.clearInterval(interval)
     }
-  }, [markedFrames, previewFps, imageVersion, settingsKey, backgroundVersion])
+  }, [markedFrames, previewFps, imageVersion, settingsKey, backgroundVersion, chromaSettings])
 
   const getProcessedFrame = (
     frame: MarkedFrame,

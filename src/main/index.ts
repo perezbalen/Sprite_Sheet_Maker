@@ -52,11 +52,11 @@ const createWindow = () => {
     }
   })
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL
+  const devServerUrl = process.env.ELECTRON_RENDERER_URL || process.env.VITE_DEV_SERVER_URL
   if (devServerUrl) {
     mainWindow.loadURL(devServerUrl)
   } else {
-    mainWindow.loadFile(join(__dirname, '../../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
