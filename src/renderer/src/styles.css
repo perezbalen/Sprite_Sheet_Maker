@@ -329,6 +329,12 @@ input[type="range"] {
   border-radius: var(--radius-md);
   background: rgba(30, 30, 46, 0.7);
   box-shadow: 0 8px 16px rgba(12, 12, 20, 0.3);
+  cursor: grab;
+}
+
+.frame-item.dragging {
+  opacity: 0.6;
+  cursor: grabbing;
 }
 
 .frame-item img {

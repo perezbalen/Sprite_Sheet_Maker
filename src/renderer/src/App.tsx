@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [previewZoom, setPreviewZoom] = useState(1)
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
   const [markEveryN, setMarkEveryN] = useState(10)
+  const [draggedFrameKey, setDraggedFrameKey] = useState<number | null>(null)
   const [featherDirection, setFeatherDirection] = useState<'background' | 'subject'>(
     'background'
   )
@@ -371,6 +372,19 @@ const App: React.FC = () => {
     setMarkedFrames((prev) => prev.filter((frame) => frame.key !== key))
   }
 
+  const reorderFrames = (fromKey: number, toKey: number) => {
+    if (fromKey === toKey) return
+    setMarkedFrames((prev) => {
+      const fromIndex = prev.findIndex((frame) => frame.key === fromKey)
+      const toIndex = prev.findIndex((frame) => frame.key === toKey)
+      if (fromIndex < 0 || toIndex < 0) return prev
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
+  }
+
   const handleMarkEveryN = useCallback(async () => {
     if (!videoRef.current || !sourcePath || !jobId) return
     if (inPoint === null || outPoint === null) return
@@ -554,7 +568,7 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <header className="header">
-        <h1>SpriteLoop</h1>
+        <h1>🎞️Sprite Loop</h1>
       </header>
 
       <main className="layout-grid">
@@ -687,7 +701,21 @@ const App: React.FC = () => {
           <div className="frame-list">
             {markedFrames.length === 0 && <p>No frames marked yet.</p>}
             {markedFrames.map((frame) => (
-              <div key={frame.key} className="frame-item">
+              <div
+                key={frame.key}
+                className={`frame-item${draggedFrameKey === frame.key ? ' dragging' : ''}`}
+                draggable
+                onDragStart={() => setDraggedFrameKey(frame.key)}
+                onDragEnd={() => setDraggedFrameKey(null)}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                }}
+                onDrop={() => {
+                  if (draggedFrameKey === null) return
+                  reorderFrames(draggedFrameKey, frame.key)
+                  setDraggedFrameKey(null)
+                }}
+              >
                 <img src={frame.fileUrl} alt={`Frame ${frame.frameIndex}`} />
                 <div className="frame-meta">
                   <span>Frame {formatFrame(frame.time)}</span>
@@ -889,7 +917,13 @@ const App: React.FC = () => {
                   type="number"
                   min={1}
                   value={effectiveColumns}
-                  onChange={(event) => setSheetColumns(Math.max(1, Number(event.target.value) || 1))}
+                  onChange={(event) => {
+                    const columns = Math.max(1, Number(event.target.value) || 1)
+                    const frameCount = Math.max(1, markedFrames.length)
+                    const rows = Math.max(1, Math.ceil(frameCount / columns))
+                    setSheetColumns(columns)
+                    setSheetRows(rows)
+                  }}
                 />
               </label>
               <label>
@@ -898,7 +932,13 @@ const App: React.FC = () => {
                   type="number"
                   min={1}
                   value={sheetRows || effectiveRows}
-                  onChange={(event) => setSheetRows(Math.max(1, Number(event.target.value) || 1))}
+                  onChange={(event) => {
+                    const rows = Math.max(1, Number(event.target.value) || 1)
+                    const frameCount = Math.max(1, markedFrames.length)
+                    const columns = Math.max(1, Math.ceil(frameCount / rows))
+                    setSheetRows(rows)
+                    setSheetColumns(columns)
+                  }}
                 />
               </label>
               <label>
