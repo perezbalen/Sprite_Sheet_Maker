@@ -3,15 +3,29 @@
   "version": "0.1.0",
   "private": true,
   "main": "dist/main/index.js",
+  "build": {
+    "appId": "com.spriteloop.app",
+    "productName": "SpriteLoop",
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "package": "electron-builder",
     "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest run",
     "format": "prettier . --write"
   },
   "dependencies": {
     "electron": "^30.0.0",
+    "ffmpeg-static": "^5.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -22,12 +36,14 @@
     "@typescript-eslint/eslint-plugin": "^7.16.0",
     "@typescript-eslint/parser": "^7.16.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
     "prettier": "^3.3.3",
     "typescript": "^5.5.3",
-    "vite": "^5.3.5"
+    "vite": "^5.3.5",
+    "vitest": "^1.6.0"
   }
 }
