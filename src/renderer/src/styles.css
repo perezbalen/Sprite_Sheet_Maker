@@ -284,6 +284,19 @@ input[type="range"] {
   gap: 12px;
 }
 
+.frame-bulk {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.frame-bulk input {
+  width: 80px;
+  margin: 0 6px;
+}
+
 .frame-list {
   margin-top: 6px;
   display: flex;

@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [previewPlaying, setPreviewPlaying] = useState(true)
   const [previewZoom, setPreviewZoom] = useState(1)
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
+  const [markEveryN, setMarkEveryN] = useState(10)
   const [featherDirection, setFeatherDirection] = useState<'background' | 'subject'>(
     'background'
   )
@@ -70,6 +71,7 @@ const App: React.FC = () => {
     [keyColors, tolerance, feather, featherDirection, choke, smoothing]
   )
 
+  const effectiveFps = fpsOverride || fpsEstimate || 30
   const effectiveColumns = Math.max(1, sheetColumns || markedFrames.length || 1)
   const effectiveRows = Math.max(
     1,
@@ -302,15 +304,7 @@ const App: React.FC = () => {
     event.preventDefault()
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    const millis = Math.floor((seconds % 1) * 1000)
-    const paddedMins = mins.toString().padStart(2, '0')
-    const paddedSecs = secs.toString().padStart(2, '0')
-    const paddedMillis = millis.toString().padStart(3, '0')
-    return `${paddedMins}:${paddedSecs}.${paddedMillis}`
-  }
+  const formatFrame = (seconds: number) => Math.round(seconds * effectiveFps)
 
   const handleSetIn = () => {
     if (!videoRef.current) return
@@ -376,6 +370,42 @@ const App: React.FC = () => {
   const handleRemoveFrame = (key: number) => {
     setMarkedFrames((prev) => prev.filter((frame) => frame.key !== key))
   }
+
+  const handleMarkEveryN = useCallback(async () => {
+    if (!videoRef.current || !sourcePath || !jobId) return
+    if (inPoint === null || outPoint === null) return
+    if (outPoint < inPoint) return
+    const step = Math.max(1, Math.floor(markEveryN))
+    const startFrame = Math.round(inPoint * effectiveFps)
+    const endFrame = Math.round(outPoint * effectiveFps)
+    const framesToMark = []
+    for (let frame = startFrame; frame <= endFrame; frame += step) {
+      framesToMark.push(frame)
+    }
+    if (framesToMark[framesToMark.length - 1] !== endFrame) {
+      framesToMark.push(endFrame)
+    }
+    const existingKeys = new Set(markedFrames.map((frame) => frame.key))
+    const newFrames: MarkedFrame[] = []
+    for (const frameIndex of framesToMark) {
+      const timestamp = frameIndex / effectiveFps
+      const key = Math.round(timestamp * 1000)
+      if (existingKeys.has(key)) continue
+      const outputFile = `frame_${key}.png`
+      const result = await window.spriteLoop.extractFrame({
+        jobId,
+        sourcePath,
+        timestamp,
+        outputFile
+      })
+      const fileUrl = toFileUrl(result.outputPath)
+      newFrames.push({ key, time: timestamp, frameIndex, filePath: result.outputPath, fileUrl })
+      existingKeys.add(key)
+    }
+    if (newFrames.length) {
+      setMarkedFrames((prev) => [...prev, ...newFrames])
+    }
+  }, [effectiveFps, inPoint, jobId, markEveryN, markedFrames, outPoint, sourcePath])
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isPicking) return
@@ -492,7 +522,6 @@ const App: React.FC = () => {
     await window.spriteLoop.exportGif({ outputPath, fps: gifFps, frames: framesToExport })
   }
 
-  const effectiveFps = fpsOverride || fpsEstimate || 30
   const currentFrameNumber = Math.round(currentTime * effectiveFps)
 
   useEffect(() => {
@@ -568,7 +597,7 @@ const App: React.FC = () => {
               />
               <div className="video-controls">
                 <div className="time-readout">
-                  <span>Current: {formatTime(currentTime)}</span>
+                  <span>Current: {formatFrame(currentTime)}</span>
                   <label className="frame-input">
                     Frame
                     <input
@@ -583,17 +612,17 @@ const App: React.FC = () => {
                       }}
                     />
                   </label>
-                  <span>Total: {formatTime(duration)}</span>
+                  <span>Total: {formatFrame(duration)}</span>
                 </div>
                 <div className="in-out-controls">
                   <button type="button" onClick={handleSetIn}>
                     Set IN
                   </button>
-                  <span>IN: {inPoint !== null ? formatTime(inPoint) : '--:--.---'}</span>
+                  <span>IN: {inPoint !== null ? formatFrame(inPoint) : '--'}</span>
                   <button type="button" onClick={handleSetOut}>
                     Set OUT
                   </button>
-                  <span>OUT: {outPoint !== null ? formatTime(outPoint) : '--:--.---'}</span>
+                  <span>OUT: {outPoint !== null ? formatFrame(outPoint) : '--'}</span>
                 </div>
                 <label className="loop-toggle">
                   <input
@@ -635,13 +664,32 @@ const App: React.FC = () => {
             </button>
           </div>
           <p className="helper-text">Shortcuts: ←/→ frame, ↓/Enter mark.</p>
+          <div className="frame-bulk">
+            <label>
+              Mark every
+              <input
+                type="number"
+                min={1}
+                value={markEveryN}
+                onChange={(event) => setMarkEveryN(Math.max(1, Number(event.target.value) || 1))}
+              />
+              frames
+            </label>
+            <button
+              type="button"
+              onClick={handleMarkEveryN}
+              disabled={!videoUrl || inPoint === null || outPoint === null}
+            >
+              Mark Range
+            </button>
+          </div>
           <div className="frame-list">
             {markedFrames.length === 0 && <p>No frames marked yet.</p>}
             {markedFrames.map((frame) => (
               <div key={frame.key} className="frame-item">
                 <img src={frame.fileUrl} alt={`Frame ${frame.frameIndex}`} />
                 <div className="frame-meta">
-                  <span>{formatTime(frame.time)}</span>
+                  <span>Frame {formatFrame(frame.time)}</span>
                   <span>Frame {frame.frameIndex}</span>
                 </div>
                 <button type="button" onClick={() => handleRemoveFrame(frame.key)}>
