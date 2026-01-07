@@ -351,12 +351,18 @@ const App: React.FC = () => {
     setOutPoint(videoRef.current.currentTime)
   }
 
+  const handleResetInOut = () => {
+    setInPoint(null)
+    setOutPoint(null)
+  }
+
   const handleTimeUpdate = () => {
     if (!videoRef.current) return
     const time = videoRef.current.currentTime
     setCurrentTime(time)
     if (
       loopEnabled &&
+      !videoRef.current.paused &&
       inPoint !== null &&
       outPoint !== null &&
       outPoint > inPoint &&
@@ -382,13 +388,24 @@ const App: React.FC = () => {
     return `${prefix}${encodeURI(normalized)}`
   }
 
+  const getMaxAllowedFrame = useCallback(() => {
+    const durationValue = videoRef.current?.duration ?? duration
+    if (!durationValue || Number.isNaN(durationValue)) return null
+    const maxTime = durationValue - 1 / effectiveFps
+    if (maxTime <= 0) return 0
+    return Math.max(0, Math.floor(maxTime * effectiveFps))
+  }, [duration, effectiveFps])
+
   const handleMarkFrame = useCallback(async () => {
     if (!videoRef.current || !sourcePath || !jobId) return
-    const timestamp = videoRef.current.currentTime
+    const maxFrame = getMaxAllowedFrame()
+    if (maxFrame === null) return
+    const frameIndex = Math.round(videoRef.current.currentTime * effectiveFps)
+    if (frameIndex > maxFrame) return
+    const timestamp = frameIndex / effectiveFps
     const key = Math.round(timestamp * 1000)
     if (markedFrames.some((frame) => frame.key === key)) return
     const outputFile = `frame_${key}.png`
-    const frameIndex = Math.round(timestamp * (fpsEstimate || 30))
     const result = await window.spriteLoop.extractFrame({
       jobId,
       sourcePath,
@@ -400,10 +417,14 @@ const App: React.FC = () => {
       ...prev,
       { key, time: timestamp, frameIndex, filePath: result.outputPath, fileUrl }
     ])
-  }, [fpsEstimate, jobId, markedFrames, sourcePath])
+  }, [effectiveFps, getMaxAllowedFrame, jobId, markedFrames, sourcePath])
 
   const handleRemoveFrame = (key: number) => {
     setMarkedFrames((prev) => prev.filter((frame) => frame.key !== key))
+  }
+
+  const handleClearFrames = () => {
+    setMarkedFrames([])
   }
 
   const reorderFrames = (fromKey: number, toKey: number) => {
@@ -423,9 +444,12 @@ const App: React.FC = () => {
     if (!videoRef.current || !sourcePath || !jobId) return
     if (inPoint === null || outPoint === null) return
     if (outPoint < inPoint) return
+    const maxFrame = getMaxAllowedFrame()
+    if (maxFrame === null) return
     const step = Math.max(1, Math.floor(markEveryN))
-    const startFrame = Math.round(inPoint * effectiveFps)
-    const endFrame = Math.round(outPoint * effectiveFps)
+    const startFrame = Math.max(0, Math.round(inPoint * effectiveFps))
+    const endFrame = Math.min(Math.round(outPoint * effectiveFps), maxFrame)
+    if (startFrame > maxFrame) return
     const framesToMark = []
     for (let frame = startFrame; frame <= endFrame; frame += step) {
       framesToMark.push(frame)
@@ -436,6 +460,7 @@ const App: React.FC = () => {
     const existingKeys = new Set(markedFrames.map((frame) => frame.key))
     const newFrames: MarkedFrame[] = []
     for (const frameIndex of framesToMark) {
+      if (frameIndex > maxFrame) continue
       const timestamp = frameIndex / effectiveFps
       const key = Math.round(timestamp * 1000)
       if (existingKeys.has(key)) continue
@@ -453,7 +478,7 @@ const App: React.FC = () => {
     if (newFrames.length) {
       setMarkedFrames((prev) => [...prev, ...newFrames])
     }
-  }, [effectiveFps, inPoint, jobId, markEveryN, markedFrames, outPoint, sourcePath])
+  }, [effectiveFps, getMaxAllowedFrame, inPoint, jobId, markEveryN, markedFrames, outPoint, sourcePath])
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isPicking) return
@@ -685,6 +710,9 @@ const App: React.FC = () => {
                     Set OUT
                   </button>
                   <span>OUT: {outPoint !== null ? formatFrame(outPoint) : '--'}</span>
+                  <button type="button" onClick={handleResetInOut}>
+                    Reset IN/OUT
+                  </button>
                 </div>
                 <label className="loop-toggle">
                   <input
@@ -742,35 +770,39 @@ const App: React.FC = () => {
             >
               Mark Range
             </button>
+            <button type="button" onClick={handleClearFrames} disabled={markedFrames.length === 0}>
+              Clear All
+            </button>
           </div>
-          <div className="frame-list">
-            {markedFrames.length === 0 && <p>No frames marked yet.</p>}
-            {markedFrames.map((frame) => (
-              <div
-                key={frame.key}
-                className={`frame-item${draggedFrameKey === frame.key ? ' dragging' : ''}`}
-                draggable
-                onDragStart={() => setDraggedFrameKey(frame.key)}
-                onDragEnd={() => setDraggedFrameKey(null)}
-                onDragOver={(event) => {
-                  event.preventDefault()
-                }}
-                onDrop={() => {
-                  if (draggedFrameKey === null) return
-                  reorderFrames(draggedFrameKey, frame.key)
-                  setDraggedFrameKey(null)
-                }}
-              >
-                <img src={frame.fileUrl} alt={`Frame ${frame.frameIndex}`} />
-                <div className="frame-meta">
-                  <span>Frame {formatFrame(frame.time)}</span>
-                  <span>Frame {frame.frameIndex}</span>
+          <div className="frame-list-wrap">
+            <div className="frame-list">
+              {markedFrames.length === 0 && <p>No frames marked yet.</p>}
+              {markedFrames.map((frame) => (
+                <div
+                  key={frame.key}
+                  className={`frame-item${draggedFrameKey === frame.key ? ' dragging' : ''}`}
+                  draggable
+                  onDragStart={() => setDraggedFrameKey(frame.key)}
+                  onDragEnd={() => setDraggedFrameKey(null)}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                  }}
+                  onDrop={() => {
+                    if (draggedFrameKey === null) return
+                    reorderFrames(draggedFrameKey, frame.key)
+                    setDraggedFrameKey(null)
+                  }}
+                >
+                  <img src={frame.fileUrl} alt={`Frame ${frame.frameIndex}`} />
+                  <div className="frame-meta">
+                    <span>Frame {frame.frameIndex}</span>
+                  </div>
+                  <button type="button" onClick={() => handleRemoveFrame(frame.key)}>
+                    Remove
+                  </button>
                 </div>
-                <button type="button" onClick={() => handleRemoveFrame(frame.key)}>
-                  Remove
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
           </div>
         </section>
@@ -996,16 +1028,6 @@ const App: React.FC = () => {
             </div>
             <div className="sprite-options">
               <label>
-                GIF FPS
-                <input
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={gifFps}
-                  onChange={(event) => setGifFps(Math.max(1, Number(event.target.value) || 1))}
-                />
-              </label>
-              <label>
                 Columns
                 <input
                   type="number"
@@ -1042,6 +1064,16 @@ const App: React.FC = () => {
                   min={0}
                   value={sheetPadding}
                   onChange={(event) => setSheetPadding(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <label>
+                GIF FPS
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={gifFps}
+                  onChange={(event) => setGifFps(Math.max(1, Number(event.target.value) || 1))}
                 />
               </label>
             </div>

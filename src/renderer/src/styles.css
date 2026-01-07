@@ -281,6 +281,12 @@ input[type="range"] {
   gap: 10px;
 }
 
+.frame-list-wrap {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .frame-marking-header {
   display: flex;
   justify-content: space-between;
@@ -306,11 +312,6 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  flex: 1;
-  min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
-  padding-right: 6px;
 }
 
 .helper-text {
@@ -321,10 +322,10 @@ input[type="range"] {
 
 .frame-item {
   display: grid;
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: 60px 1fr auto;
   gap: 12px;
   align-items: center;
-  padding: 10px;
+  padding: 6px 8px;
   border: 1px solid rgba(137, 180, 250, 0.15);
   border-radius: var(--radius-md);
   background: rgba(30, 30, 46, 0.7);
@@ -338,8 +339,8 @@ input[type="range"] {
 }
 
 .frame-item img {
-  width: 80px;
-  height: 60px;
+  width: 60px;
+  height: 45px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid rgba(203, 166, 247, 0.25);
@@ -348,8 +349,8 @@ input[type="range"] {
 .frame-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
+  gap: 2px;
+  font-size: 12px;
   color: var(--ctp-subtext1);
 }
 
@@ -532,12 +533,12 @@ input[type="range"] {
 }
 
 .sprite-options {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 12px 16px;
   align-items: center;
   font-size: 14px;
   color: var(--ctp-subtext1);
-  flex-wrap: wrap;
 }
 
 .sprite-options input {

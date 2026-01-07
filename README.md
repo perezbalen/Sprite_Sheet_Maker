@@ -81,7 +81,7 @@ Electron Builder writes platform installers to `release/`.
 
 ## Keyboard shortcuts
 
-- `←` / `→`: Step one frame backward/forward.
+- `←` / `→`: Step one frame backward/forward. (the player must not be selected)
 - `↓` or `Enter`: Mark current frame.
 
 ## How frame extraction works
