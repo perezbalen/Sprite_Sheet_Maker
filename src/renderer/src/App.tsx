@@ -172,6 +172,27 @@ const App: React.FC = () => {
   }, [fpsEstimate, fpsOverride, videoUrl])
 
   useEffect(() => {
+    const video = videoRef.current
+    if (!video || !loopEnabled) return
+    if (inPoint === null || outPoint === null || outPoint <= inPoint) return
+    let rafId = 0
+    const tick = () => {
+      if (video.paused) {
+        rafId = requestAnimationFrame(tick)
+        return
+      }
+      if (video.currentTime >= outPoint - 0.0001) {
+        video.currentTime = inPoint
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [inPoint, loopEnabled, outPoint])
+
+  useEffect(() => {
     const canvas = previewCanvasRef.current
     if (!canvas) return
     const context = canvas.getContext('2d')
@@ -366,9 +387,10 @@ const App: React.FC = () => {
       inPoint !== null &&
       outPoint !== null &&
       outPoint > inPoint &&
-      time >= outPoint
+      time >= outPoint - 0.0001
     ) {
       videoRef.current.currentTime = inPoint
+      videoRef.current.play().catch(() => undefined)
     }
   }
 
