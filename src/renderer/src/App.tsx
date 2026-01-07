@@ -107,6 +107,11 @@ const App: React.FC = () => {
         .catch(() => {
           setJobId(null)
         })
+      window.spriteLoop.probeVideoFps(filePath).then((fps) => {
+        if (fps && !Number.isNaN(fps)) {
+          setFpsEstimate(fps)
+        }
+      })
       return
     }
 
@@ -121,6 +126,12 @@ const App: React.FC = () => {
       .then((job) => {
         setSourcePath(job.sourcePath)
         setJobId(job.jobId)
+        return window.spriteLoop.probeVideoFps(job.sourcePath)
+      })
+      .then((fps) => {
+        if (fps && !Number.isNaN(fps)) {
+          setFpsEstimate(fps)
+        }
       })
       .catch(() => {
         setJobId(null)
@@ -398,11 +409,44 @@ const App: React.FC = () => {
     if (!videoRef.current) return
     const totalDuration = videoRef.current.duration || 0
     setDuration(totalDuration)
-    const quality = videoRef.current.getVideoPlaybackQuality?.()
-    if (quality?.totalVideoFrames && totalDuration > 0) {
-      setFpsEstimate(quality.totalVideoFrames / totalDuration)
+    if (!fpsEstimate) {
+      const quality = videoRef.current.getVideoPlaybackQuality?.()
+      if (quality?.totalVideoFrames && totalDuration > 0) {
+        setFpsEstimate(quality.totalVideoFrames / totalDuration)
+      }
     }
   }
+
+  useEffect(() => {
+    if (fpsEstimate !== null) return
+    const video = videoRef.current
+    if (!video) return
+    const requestCallback = (video as HTMLVideoElement & { requestVideoFrameCallback?: Function })
+      .requestVideoFrameCallback
+    if (!requestCallback) return
+    let active = true
+    const handleFrame = (_now: number, metadata: { presentedFrames?: number; mediaTime?: number }) => {
+      if (!active || fpsEstimate !== null) return
+      const frames = metadata.presentedFrames ?? 0
+      const mediaTime = metadata.mediaTime ?? 0
+      if (frames > 0 && mediaTime > 0) {
+        const estimate = frames / mediaTime
+        if (Number.isFinite(estimate) && estimate > 0) {
+          setFpsEstimate(estimate)
+          return
+        }
+      }
+      ;(video as HTMLVideoElement & { requestVideoFrameCallback?: Function }).requestVideoFrameCallback?.(
+        handleFrame
+      )
+    }
+    ;(video as HTMLVideoElement & { requestVideoFrameCallback?: Function }).requestVideoFrameCallback?.(
+      handleFrame
+    )
+    return () => {
+      active = false
+    }
+  }, [fpsEstimate, videoUrl])
 
   const toFileUrl = (filePath: string) => {
     const normalized = filePath.replace(/\\/g, '/')

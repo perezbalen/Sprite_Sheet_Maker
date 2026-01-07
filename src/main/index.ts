@@ -148,6 +148,37 @@ ipcMain.handle(
   }
 )
 
+const probeVideoFps = (sourcePath: string) => {
+  return new Promise<number | null>((resolve) => {
+    const executable = ffmpegPath || 'ffmpeg'
+    const args = ['-hide_banner', '-i', sourcePath]
+    const child = spawn(executable, args, { windowsHide: true })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+    child.on('close', () => {
+      const lines = stderr.split(/\r?\n/)
+      const videoLine = lines.find((line) => line.includes('Video:'))
+      if (!videoLine) {
+        resolve(null)
+        return
+      }
+      const fpsMatch = videoLine.match(/([0-9]+(?:\.[0-9]+)?)\s*fps/)
+      if (!fpsMatch) {
+        resolve(null)
+        return
+      }
+      const fpsValue = Number(fpsMatch[1])
+      resolve(Number.isFinite(fpsValue) ? fpsValue : null)
+    })
+  })
+}
+
+ipcMain.handle('video:probeFps', async (_event, payload: { sourcePath: string }) => {
+  return probeVideoFps(payload.sourcePath)
+})
+
 ipcMain.handle('dialog:selectDirectory', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'createDirectory']

@@ -7,6 +7,7 @@ interface Window {
       fileName: string
       data: Uint8Array
     }) => Promise<{ jobId: string; jobDir: string; sourcePath: string }>
+    probeVideoFps: (sourcePath: string) => Promise<number | null>
     extractFrame: (payload: {
       jobId: string
       sourcePath: string

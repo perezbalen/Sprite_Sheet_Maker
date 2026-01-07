@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('spriteLoop', {
   createJob: (sourcePath: string) => ipcRenderer.invoke('job:create', { sourcePath }),
   createJobWithVideo: (payload: { fileName: string; data: Uint8Array }) =>
     ipcRenderer.invoke('job:createWithVideo', payload),
+  probeVideoFps: (sourcePath: string) => ipcRenderer.invoke('video:probeFps', { sourcePath }),
   extractFrame: (payload: {
     jobId: string
     sourcePath: string
