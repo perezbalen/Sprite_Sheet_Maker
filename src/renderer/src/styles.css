@@ -368,11 +368,12 @@ input[type="range"] {
 }
 
 .preview-canvas {
-  width: 100%;
+  width: auto;
   background: repeating-conic-gradient(rgba(88, 91, 112, 0.6) 0 25%, rgba(24, 24, 37, 0.6) 0 50%) 50% / 20px 20px;
   border: 1px solid rgba(137, 180, 250, 0.2);
   border-radius: var(--radius-md);
   margin: 12px 0;
+  display: block;
 }
 
 .preview-canvas.zoomed {
@@ -385,6 +386,11 @@ input[type="range"] {
 
 .preview-canvas.picking {
   cursor: default;
+}
+
+.preview-canvas-wrap {
+  width: 100%;
+  overflow: visible;
 }
 
 .preview-fps {
@@ -438,6 +444,32 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.crop-grid-3x3 {
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  grid-template-rows: repeat(3, auto);
+  gap: 8px;
+}
+
+.crop-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 54px;
+}
+
+.crop-cell input {
+  width: 100%;
+}
+
+.crop-center {
+  font-size: 12px;
+  color: var(--ctp-overlay1);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  justify-content: center;
 }
 
 .key-colors {

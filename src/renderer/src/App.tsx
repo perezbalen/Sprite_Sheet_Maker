@@ -38,7 +38,6 @@ const App: React.FC = () => {
   const [sheetPadding, setSheetPadding] = useState(0)
   const [previewPlaying, setPreviewPlaying] = useState(true)
   const [previewZoom, setPreviewZoom] = useState(1)
-  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
   const [markEveryN, setMarkEveryN] = useState(10)
   const [draggedFrameKey, setDraggedFrameKey] = useState<number | null>(null)
   const [cropTop, setCropTop] = useState(0)
@@ -51,10 +50,11 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const backgroundInputRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const previewWrapRef = useRef<HTMLDivElement | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const processedCacheRef = useRef<Map<string, HTMLCanvasElement>>(new Map())
-  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(
+  const dragStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number } | null>(
     null
   )
   const currentPreviewFrameRef = useRef<MarkedFrame | null>(null)
@@ -96,7 +96,6 @@ const App: React.FC = () => {
     setFpsOverride(null)
     setGifFps(12)
     setPreviewZoom(1)
-    setPreviewPan({ x: 0, y: 0 })
     const filePath = (videoFile as File & { path?: string }).path
     if (filePath) {
       setSourcePath(filePath)
@@ -173,12 +172,6 @@ const App: React.FC = () => {
   }, [fpsEstimate, fpsOverride, videoUrl])
 
   useEffect(() => {
-    if (previewZoom <= 1) {
-      setPreviewPan({ x: 0, y: 0 })
-    }
-  }, [previewZoom])
-
-  useEffect(() => {
     const canvas = previewCanvasRef.current
     if (!canvas) return
     const context = canvas.getContext('2d')
@@ -194,9 +187,11 @@ const App: React.FC = () => {
       const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
       if (processed) {
         const cropRect = getCropRect(processed.width, processed.height)
-        if (canvas.width !== cropRect.width || canvas.height !== cropRect.height) {
-          canvas.width = cropRect.width
-          canvas.height = cropRect.height
+        const targetWidth = Math.max(1, Math.floor(cropRect.width * previewZoom))
+        const targetHeight = Math.max(1, Math.floor(cropRect.height * previewZoom))
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth
+          canvas.height = targetHeight
         }
         context.setTransform(1, 0, 0, 1, 0, 0)
         context.clearRect(0, 0, canvas.width, canvas.height)
@@ -204,7 +199,6 @@ const App: React.FC = () => {
         if (backgroundImage) {
           context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height)
         }
-        context.setTransform(previewZoom, 0, 0, previewZoom, previewPan.x, previewPan.y)
         context.drawImage(
           processed,
           cropRect.x,
@@ -213,10 +207,9 @@ const App: React.FC = () => {
           cropRect.height,
           0,
           0,
-          cropRect.width,
-          cropRect.height
+          canvas.width,
+          canvas.height
         )
-        context.setTransform(1, 0, 0, 1, 0, 0)
         if (previewPlaying) {
           framePosition = (framePosition + 1) % markedFrames.length
         }
@@ -240,7 +233,6 @@ const App: React.FC = () => {
     chromaSettings,
     previewPlaying,
     previewZoom,
-    previewPan,
     cropTop,
     cropRight,
     cropBottom,
@@ -476,8 +468,8 @@ const App: React.FC = () => {
     const canvasX = (event.clientX - rect.left) * scaleX
     const canvasY = (event.clientY - rect.top) * scaleY
     const cropRect = getCropRect(img.width, img.height)
-    const x = Math.floor((canvasX - previewPan.x) / previewZoom) + cropRect.x
-    const y = Math.floor((canvasY - previewPan.y) / previewZoom) + cropRect.y
+    const x = Math.floor(canvasX / previewZoom) + cropRect.x
+    const y = Math.floor(canvasY / previewZoom) + cropRect.y
     if (
       x < cropRect.x ||
       y < cropRect.y ||
@@ -800,36 +792,39 @@ const App: React.FC = () => {
               </button>
             </div>
           </div>
-          <canvas
-            ref={previewCanvasRef}
-            className={`preview-canvas${previewZoom > 1 ? ' zoomed' : ''}${
-              isPicking ? ' picking' : ''
-            }`}
-            onClick={handleCanvasClick}
-            onMouseDown={(event) => {
-              if (previewZoom <= 1) return
-              dragStartRef.current = {
-                x: event.clientX,
-                y: event.clientY,
-                panX: previewPan.x,
-                panY: previewPan.y
-              }
-            }}
-            onMouseMove={(event) => {
-              const start = dragStartRef.current
-              if (!start) return
-              setPreviewPan({
-                x: start.panX + (event.clientX - start.x),
-                y: start.panY + (event.clientY - start.y)
-              })
-            }}
-            onMouseUp={() => {
-              dragStartRef.current = null
-            }}
-            onMouseLeave={() => {
-              dragStartRef.current = null
-            }}
-          />
+          <div className="preview-canvas-wrap" ref={previewWrapRef}>
+            <canvas
+              ref={previewCanvasRef}
+              className={`preview-canvas${previewZoom > 1 ? ' zoomed' : ''}${
+                isPicking ? ' picking' : ''
+              }`}
+              onClick={handleCanvasClick}
+              onMouseDown={(event) => {
+                if (previewZoom <= 1) return
+                const wrap = previewWrapRef.current
+                if (!wrap) return
+                dragStartRef.current = {
+                  x: event.clientX,
+                  y: event.clientY,
+                  scrollLeft: wrap.scrollLeft,
+                  scrollTop: wrap.scrollTop
+                }
+              }}
+              onMouseMove={(event) => {
+                const start = dragStartRef.current
+                const wrap = previewWrapRef.current
+                if (!start || !wrap) return
+                wrap.scrollLeft = start.scrollLeft - (event.clientX - start.x)
+                wrap.scrollTop = start.scrollTop - (event.clientY - start.y)
+              }}
+              onMouseUp={() => {
+                dragStartRef.current = null
+              }}
+              onMouseLeave={() => {
+                dragStartRef.current = null
+              }}
+            />
+          </div>
           <label className="preview-fps">
             Preview FPS
             <input
@@ -918,8 +913,9 @@ const App: React.FC = () => {
           </label>
           <div className="crop-controls">
             <h3>Crop (px)</h3>
-            <div className="crop-grid">
-              <label>
+            <div className="crop-grid crop-grid-3x3">
+              <div className="crop-cell" />
+              <label className="crop-cell">
                 Top
                 <input
                   type="number"
@@ -928,25 +924,8 @@ const App: React.FC = () => {
                   onChange={(event) => setCropTop(Math.max(0, Number(event.target.value) || 0))}
                 />
               </label>
-              <label>
-                Right
-                <input
-                  type="number"
-                  min={0}
-                  value={cropRight}
-                  onChange={(event) => setCropRight(Math.max(0, Number(event.target.value) || 0))}
-                />
-              </label>
-              <label>
-                Bottom
-                <input
-                  type="number"
-                  min={0}
-                  value={cropBottom}
-                  onChange={(event) => setCropBottom(Math.max(0, Number(event.target.value) || 0))}
-                />
-              </label>
-              <label>
+              <div className="crop-cell" />
+              <label className="crop-cell">
                 Left
                 <input
                   type="number"
@@ -955,6 +934,27 @@ const App: React.FC = () => {
                   onChange={(event) => setCropLeft(Math.max(0, Number(event.target.value) || 0))}
                 />
               </label>
+              <div className="crop-cell crop-center">Crop</div>
+              <label className="crop-cell">
+                Right
+                <input
+                  type="number"
+                  min={0}
+                  value={cropRight}
+                  onChange={(event) => setCropRight(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <div className="crop-cell" />
+              <label className="crop-cell">
+                Bottom
+                <input
+                  type="number"
+                  min={0}
+                  value={cropBottom}
+                  onChange={(event) => setCropBottom(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <div className="crop-cell" />
             </div>
           </div>
         </div>
