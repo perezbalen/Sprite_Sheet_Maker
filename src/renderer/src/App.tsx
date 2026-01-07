@@ -41,6 +41,10 @@ const App: React.FC = () => {
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 })
   const [markEveryN, setMarkEveryN] = useState(10)
   const [draggedFrameKey, setDraggedFrameKey] = useState<number | null>(null)
+  const [cropTop, setCropTop] = useState(0)
+  const [cropRight, setCropRight] = useState(0)
+  const [cropBottom, setCropBottom] = useState(0)
+  const [cropLeft, setCropLeft] = useState(0)
   const [featherDirection, setFeatherDirection] = useState<'background' | 'subject'>(
     'background'
   )
@@ -189,9 +193,10 @@ const App: React.FC = () => {
       currentPreviewFrameRef.current = frame
       const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
       if (processed) {
-        if (canvas.width !== processed.width || canvas.height !== processed.height) {
-          canvas.width = processed.width
-          canvas.height = processed.height
+        const cropRect = getCropRect(processed.width, processed.height)
+        if (canvas.width !== cropRect.width || canvas.height !== cropRect.height) {
+          canvas.width = cropRect.width
+          canvas.height = cropRect.height
         }
         context.setTransform(1, 0, 0, 1, 0, 0)
         context.clearRect(0, 0, canvas.width, canvas.height)
@@ -200,7 +205,17 @@ const App: React.FC = () => {
           context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height)
         }
         context.setTransform(previewZoom, 0, 0, previewZoom, previewPan.x, previewPan.y)
-        context.drawImage(processed, 0, 0)
+        context.drawImage(
+          processed,
+          cropRect.x,
+          cropRect.y,
+          cropRect.width,
+          cropRect.height,
+          0,
+          0,
+          cropRect.width,
+          cropRect.height
+        )
         context.setTransform(1, 0, 0, 1, 0, 0)
         if (previewPlaying) {
           framePosition = (framePosition + 1) % markedFrames.length
@@ -225,7 +240,11 @@ const App: React.FC = () => {
     chromaSettings,
     previewPlaying,
     previewZoom,
-    previewPan
+    previewPan,
+    cropTop,
+    cropRight,
+    cropBottom,
+    cropLeft
   ])
 
   const getProcessedFrame = (
@@ -276,6 +295,29 @@ const App: React.FC = () => {
           .catch(reject)
       }, 'image/png')
     })
+  }
+
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+  const getCropRect = (width: number, height: number) => {
+    const left = clamp(cropLeft, 0, Math.max(0, width - 1))
+    const right = clamp(cropRight, 0, Math.max(0, width - 1 - left))
+    const top = clamp(cropTop, 0, Math.max(0, height - 1))
+    const bottom = clamp(cropBottom, 0, Math.max(0, height - 1 - top))
+    const cropWidth = Math.max(1, Math.floor(width - left - right))
+    const cropHeight = Math.max(1, Math.floor(height - top - bottom))
+    return { x: Math.floor(left), y: Math.floor(top), width: cropWidth, height: cropHeight }
+  }
+
+  const getCroppedCanvas = (source: HTMLCanvasElement) => {
+    const rect = getCropRect(source.width, source.height)
+    const canvas = document.createElement('canvas')
+    canvas.width = rect.width
+    canvas.height = rect.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return source
+    ctx.drawImage(source, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height)
+    return canvas
   }
 
   const handleOpenClick = () => {
@@ -433,9 +475,16 @@ const App: React.FC = () => {
     const scaleY = canvas.height / rect.height
     const canvasX = (event.clientX - rect.left) * scaleX
     const canvasY = (event.clientY - rect.top) * scaleY
-    const x = Math.floor((canvasX - previewPan.x) / previewZoom)
-    const y = Math.floor((canvasY - previewPan.y) / previewZoom)
-    if (x < 0 || y < 0 || x >= img.width || y >= img.height) return
+    const cropRect = getCropRect(img.width, img.height)
+    const x = Math.floor((canvasX - previewPan.x) / previewZoom) + cropRect.x
+    const y = Math.floor((canvasY - previewPan.y) / previewZoom) + cropRect.y
+    if (
+      x < cropRect.x ||
+      y < cropRect.y ||
+      x >= cropRect.x + cropRect.width ||
+      y >= cropRect.y + cropRect.height
+    )
+      return
     if (!sampleCanvasRef.current) {
       sampleCanvasRef.current = document.createElement('canvas')
     }
@@ -480,7 +529,8 @@ const App: React.FC = () => {
       await ensureImageLoaded(frame.fileUrl)
       const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
       if (!processed) continue
-      const data = await canvasToPngBytes(processed)
+      const cropped = getCroppedCanvas(processed)
+      const data = await canvasToPngBytes(cropped)
       const fileName = `frame_${String(index + 1).padStart(4, '0')}.png`
       framesToExport.push({ fileName, data })
     }
@@ -494,9 +544,10 @@ const App: React.FC = () => {
     await ensureImageLoaded(markedFrames[0].fileUrl)
     const firstProcessed = getProcessedFrame(markedFrames[0], chromaSettings, settingsKey)
     if (!firstProcessed) return
+    const firstCropped = getCroppedCanvas(firstProcessed)
     const layout = calculateSpriteSheetLayout(
-      firstProcessed.width,
-      firstProcessed.height,
+      firstCropped.width,
+      firstCropped.height,
       markedFrames.length,
       effectiveColumns,
       effectiveRows,
@@ -512,8 +563,9 @@ const App: React.FC = () => {
       await ensureImageLoaded(frame.fileUrl)
       const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
       if (!processed) continue
+      const cropped = getCroppedCanvas(processed)
       const cell = layout.cells[index]
-      ctx.drawImage(processed, cell.x, cell.y)
+      ctx.drawImage(cropped, cell.x, cell.y)
     }
     const data = await canvasToPngBytes(sheetCanvas)
     await window.spriteLoop.writeFile({ path: outputPath, data })
@@ -529,7 +581,8 @@ const App: React.FC = () => {
       await ensureImageLoaded(frame.fileUrl)
       const processed = getProcessedFrame(frame, chromaSettings, settingsKey)
       if (!processed) continue
-      const data = await canvasToPngBytes(processed)
+      const cropped = getCroppedCanvas(processed)
+      const data = await canvasToPngBytes(cropped)
       const fileName = `frame_${String(index + 1).padStart(4, '0')}.png`
       framesToExport.push({ fileName, data })
     }
@@ -863,7 +916,48 @@ const App: React.FC = () => {
               <option value="subject">Toward Subject</option>
             </select>
           </label>
+          <div className="crop-controls">
+            <h3>Crop (px)</h3>
+            <div className="crop-grid">
+              <label>
+                Top
+                <input
+                  type="number"
+                  min={0}
+                  value={cropTop}
+                  onChange={(event) => setCropTop(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <label>
+                Right
+                <input
+                  type="number"
+                  min={0}
+                  value={cropRight}
+                  onChange={(event) => setCropRight(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <label>
+                Bottom
+                <input
+                  type="number"
+                  min={0}
+                  value={cropBottom}
+                  onChange={(event) => setCropBottom(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+              <label>
+                Left
+                <input
+                  type="number"
+                  min={0}
+                  value={cropLeft}
+                  onChange={(event) => setCropLeft(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
+            </div>
           </div>
+        </div>
         </section>
 
         <section className="row">

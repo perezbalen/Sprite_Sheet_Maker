@@ -414,6 +414,32 @@ input[type="range"] {
   gap: 12px;
 }
 
+.crop-controls {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.crop-controls h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ctp-subtext1);
+}
+
+.crop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 10px;
+  font-size: 13px;
+}
+
+.crop-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .key-colors {
   margin: 12px 0;
   display: flex;
