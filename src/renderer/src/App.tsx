@@ -522,9 +522,6 @@ const App: React.FC = () => {
     for (let frame = startFrame; frame <= endFrame; frame += step) {
       framesToMark.push(frame)
     }
-    if (framesToMark[framesToMark.length - 1] !== endFrame) {
-      framesToMark.push(endFrame)
-    }
     const existingKeys = new Set(markedFrames.map((frame) => frame.key))
     const newFrames: MarkedFrame[] = []
     for (const frameIndex of framesToMark) {
