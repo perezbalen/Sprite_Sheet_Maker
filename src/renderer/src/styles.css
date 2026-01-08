@@ -65,6 +65,10 @@ button {
   box-shadow: 0 8px 18px rgba(137, 180, 250, 0.25);
 }
 
+button i {
+  margin-right: 6px;
+}
+
 button:hover {
   transform: translateY(-1px);
   filter: brightness(1.08);

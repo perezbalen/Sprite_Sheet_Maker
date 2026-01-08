@@ -719,7 +719,7 @@ const App: React.FC = () => {
             <div className="drop-zone-content">
               <p>Drag & drop an MP4 here</p>
               <button type="button" onClick={handleOpenClick}>
-                Open Video...
+                <i className="fa-solid fa-folder-open" /> Open Video...
               </button>
               <input
                 ref={fileInputRef}
@@ -763,7 +763,7 @@ const App: React.FC = () => {
                     }
                   }}
                 >
-                  {isPlaying ? 'Pause' : 'Play'}
+                  <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'}`} />
                 </button>
                 <button
                   type="button"
@@ -774,7 +774,7 @@ const App: React.FC = () => {
                     setIsMuted(nextMuted)
                   }}
                 >
-                  {isMuted ? 'Unmute' : 'Mute'}
+                  <i className={`fa-solid ${isMuted ? 'fa-volume-xmark' : 'fa-volume-high'}`} />
                 </button>
                 <input
                   className="video-scrub"
@@ -798,7 +798,7 @@ const App: React.FC = () => {
                     element.requestFullscreen?.().catch(() => undefined)
                   }}
                 >
-                  Fullscreen
+                  <i className="fa-solid fa-expand" />
                 </button>
               </div>
               <div className="video-controls">
@@ -822,15 +822,15 @@ const App: React.FC = () => {
                 </div>
                 <div className="in-out-controls">
                   <button type="button" onClick={handleSetIn}>
-                    Set IN
+                    <i className="fa-solid fa-arrow-left" /> Set IN
                   </button>
                   <span>IN: {inPoint !== null ? formatFrame(inPoint) : '--'}</span>
                   <button type="button" onClick={handleSetOut}>
-                    Set OUT
+                    <i className="fa-solid fa-arrow-right" /> Set OUT
                   </button>
                   <span>OUT: {outPoint !== null ? formatFrame(outPoint) : '--'}</span>
                   <button type="button" onClick={handleResetInOut}>
-                    Reset IN/OUT
+                    <i className="fa-solid fa-rotate-left" /> Reset IN/OUT
                   </button>
                 </div>
                 <label className="loop-toggle">
@@ -867,7 +867,7 @@ const App: React.FC = () => {
           <div className="frame-marking-header">
             <h2>Marked Frames</h2>
             <button type="button" onClick={handleMarkFrame} disabled={!videoUrl}>
-              Mark Current Frame
+              <i className="fa-solid fa-thumbtack" /> Mark Current Frame
             </button>
           </div>
           <p className="helper-text">Shortcuts: ←/→ frame, ↓/Enter mark.</p>
@@ -887,10 +887,10 @@ const App: React.FC = () => {
               onClick={handleMarkEveryN}
               disabled={!videoUrl || inPoint === null || outPoint === null}
             >
-              Mark Range
+              <i className="fa-solid fa-layer-group" /> Mark Range
             </button>
             <button type="button" onClick={handleClearFrames} disabled={markedFrames.length === 0}>
-              Clear All
+              <i className="fa-solid fa-trash" /> Clear All
             </button>
           </div>
           <div className="frame-list-wrap">
@@ -917,7 +917,7 @@ const App: React.FC = () => {
                     <span>Frame {frame.frameIndex}</span>
                   </div>
                   <button type="button" onClick={() => handleRemoveFrame(frame.key)}>
-                    Remove
+                    <i className="fa-solid fa-xmark" /> Remove
                   </button>
                 </div>
               ))}
@@ -931,15 +931,16 @@ const App: React.FC = () => {
           <h2>Selected Frames Preview</h2>
           <div className="preview-toolbar">
             <button type="button" onClick={() => setPreviewPlaying((prev) => !prev)}>
+              <i className={`fa-solid ${previewPlaying ? 'fa-stop' : 'fa-play'}`} />{' '}
               {previewPlaying ? 'Stop' : 'Play'}
             </button>
             <div className="preview-zoom">
               <button type="button" onClick={() => setPreviewZoom((zoom) => Math.max(1, zoom - 1))}>
-                Zoom -
+                <i className="fa-solid fa-magnifying-glass-minus" /> Zoom -
               </button>
               <span>{previewZoom}x</span>
               <button type="button" onClick={() => setPreviewZoom((zoom) => Math.min(8, zoom + 1))}>
-                Zoom +
+                <i className="fa-solid fa-magnifying-glass-plus" /> Zoom +
               </button>
             </div>
           </div>
@@ -992,6 +993,7 @@ const App: React.FC = () => {
           <div className="chroma-header">
             <h2>Chroma Key</h2>
             <button type="button" onClick={() => setIsPicking((prev) => !prev)}>
+              <i className="fa-solid fa-eye-dropper" />{' '}
               {isPicking ? 'Click Preview to Pick' : 'Pick Key Color'}
             </button>
           </div>
@@ -1123,7 +1125,7 @@ const App: React.FC = () => {
                 onChange={handleBackgroundFileChange}
               />
               <button type="button" onClick={handleClearBackground}>
-                Clear Background
+                <i className="fa-solid fa-ban" /> Clear Background
               </button>
             </div>
           </div>
@@ -1132,17 +1134,17 @@ const App: React.FC = () => {
             <h2>Export</h2>
             <div className="export-controls">
               <button type="button" onClick={handleExportFrames} disabled={markedFrames.length === 0}>
-                Export PNG Frames...
+                <i className="fa-solid fa-images" /> Export PNG Frames...
               </button>
               <button type="button" onClick={handleExportGif} disabled={markedFrames.length === 0}>
-                Export Animated GIF...
+                <i className="fa-solid fa-film" /> Export Animated GIF...
               </button>
               <button
                 type="button"
                 onClick={handleExportSpriteSheet}
                 disabled={markedFrames.length === 0}
               >
-                Export Sprite Sheet...
+                <i className="fa-solid fa-table-cells-large" /> Export Sprite Sheet...
               </button>
             </div>
             <div className="sprite-options">
