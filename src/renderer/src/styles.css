@@ -205,6 +205,20 @@ input[type="range"] {
   box-shadow: 0 10px 30px rgba(12, 12, 20, 0.55);
 }
 
+.video-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(24, 24, 37, 0.8);
+  border: 1px solid rgba(137, 180, 250, 0.15);
+}
+
+.video-scrub {
+  flex: 1;
+}
+
 .video-stack {
   width: 100%;
   display: flex;

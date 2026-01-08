@@ -44,6 +44,8 @@ const App: React.FC = () => {
   const [cropRight, setCropRight] = useState(0)
   const [cropBottom, setCropBottom] = useState(0)
   const [cropLeft, setCropLeft] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const [featherDirection, setFeatherDirection] = useState<'background' | 'subject'>(
     'background'
   )
@@ -737,17 +739,68 @@ const App: React.FC = () => {
               <video
                 ref={videoRef}
                 src={videoUrl}
-                controls
                 muted
                 className="video-player"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
                 onClick={(event) => {
                   event.preventDefault()
                   event.stopPropagation()
                   videoRef.current?.pause()
                 }}
               />
+              <div className="video-player-controls">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!videoRef.current) return
+                    if (videoRef.current.paused) {
+                      videoRef.current.play().catch(() => undefined)
+                    } else {
+                      videoRef.current.pause()
+                    }
+                  }}
+                >
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!videoRef.current) return
+                    const nextMuted = !videoRef.current.muted
+                    videoRef.current.muted = nextMuted
+                    setIsMuted(nextMuted)
+                  }}
+                >
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </button>
+                <input
+                  className="video-scrub"
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  step={0.001}
+                  value={currentTime}
+                  onChange={(event) => {
+                    if (!videoRef.current) return
+                    const value = Number(event.target.value)
+                    if (Number.isNaN(value)) return
+                    videoRef.current.currentTime = value
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const element = videoRef.current
+                    if (!element) return
+                    element.requestFullscreen?.().catch(() => undefined)
+                  }}
+                >
+                  Fullscreen
+                </button>
+              </div>
               <div className="video-controls">
                 <div className="time-readout">
                   <span>Current: {formatFrame(currentTime)}</span>
